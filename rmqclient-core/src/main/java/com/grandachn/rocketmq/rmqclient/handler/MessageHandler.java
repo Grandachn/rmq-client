@@ -6,5 +6,5 @@ package com.grandachn.rocketmq.rmqclient.handler;
  */
 @FunctionalInterface
 public interface MessageHandler {
-    void execute(String message);
+    void execute(byte[] message, Class clazz) throws Exception;
 }

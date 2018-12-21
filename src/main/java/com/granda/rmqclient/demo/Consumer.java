@@ -24,7 +24,7 @@ public class Consumer {
         consumer.setNamesrvAddr("192.168.29.132:9876");
 
         // Subscribe one more more topics to consume.
-        consumer.subscribe("TopicTest", "*");
+        consumer.subscribe("TestHandler", "*");
         // Register callback to execute on arrival of messages fetched from brokers.
         consumer.registerMessageListener(new MessageListenerConcurrently() {
 

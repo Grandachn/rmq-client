@@ -1,17 +1,17 @@
 package com.grandachn.rocketmq.rmqclient.client;
 
-import com.alibaba.fastjson.JSON;
 import com.grandachn.rocketmq.rmqclient.bean.ProducerConfig;
+import com.grandachn.rocketmq.rmqclient.bean.RmqHandlerMeta;
+import com.grandachn.rocketmq.rmqclient.core.RmqClientContext;
+import com.grandachn.rocketmq.rmqclient.util.SpringContextUtils;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
-import org.apache.rocketmq.remoting.common.RemotingHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.Properties;
 
 /**
@@ -24,23 +24,17 @@ public class RmqProducer {
     private DefaultMQProducer producer;
     private String propertiesFile;
     private Properties properties;
-    private String topic;
 
-    public RmqProducer(){
+    private RmqHandlerMeta rmqHandlerMeta;
 
-    }
+    private RmqClientContext rmqClientContext;
 
-    public RmqProducer(String propertiesFile, String topic){
-        this.propertiesFile = propertiesFile;
-        this.topic = topic;
+    public RmqProducer(RmqHandlerMeta rmqHandlerMeta){
+        this.rmqHandlerMeta = rmqHandlerMeta;
+        this.propertiesFile = rmqHandlerMeta.getOutputMessage().propertiesFile();
         init();
     }
 
-    public RmqProducer(Properties properties, String topic){
-        this.properties = properties;
-        this.topic = topic;
-        init();
-    }
 
     private void init() {
         if (properties == null) {
@@ -57,22 +51,24 @@ public class RmqProducer {
         LOG.info("Producer properties:" + properties);
         ProducerConfig config = new ProducerConfig(properties);
 
-        DefaultMQProducer producer = new DefaultMQProducer(config.getProducerGroup());
+        DefaultMQProducer producer = new DefaultMQProducer(rmqHandlerMeta.getOutputMessage().producerGroup());
         producer.setNamesrvAddr(config.getNamesrvAddr());
         try {
             producer.start();
+            this.producer = producer;
         } catch (MQClientException e) {
             LOG.error("The DefaultMQProducer start fail.", e);
         }
+
+        this.rmqClientContext = (RmqClientContext) SpringContextUtils.getBeanByClass(RmqClientContext.class);
     }
 
     public SendResult sendBeanToTopic(String topicName, String tags, Object bean){
         SendResult sendResult = null;
         try {
-            Message msg = new Message(topicName , tags,  JSON.toJSONString(bean).getBytes(RemotingHelper.DEFAULT_CHARSET));
+            byte[] bytes = rmqClientContext.getSerialize().serialize(bean, rmqHandlerMeta.getReturnType());
+            Message msg = new Message(topicName , tags,  bytes);
             sendResult = producer.send(msg);
-        } catch (UnsupportedEncodingException e) {
-            LOG.error("message bean to json fail.", e);
         } catch (Exception e) {
             LOG.error("send message error.", e);
         }

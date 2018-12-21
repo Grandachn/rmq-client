@@ -11,9 +11,10 @@ import java.lang.annotation.Target;
  */
 @Target({ ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
-public @interface OutputProducer {
+public @interface OutputTransactionMessage {
     String propertiesFile() default "rocketmq.properties";
     String producerGroup() default "";
     String namesrvAddr() default "";
     String topic() default "";
+    String tags() default "";
 }

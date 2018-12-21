@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import com.grandachn.rocketmq.rmqclient.aspect.ProducerAspect;
+import com.grandachn.rocketmq.rmqclient.aspect.TransactionProducerAspect;
 import com.grandachn.rocketmq.rmqclient.core.RmqClientContext;
 import com.grandachn.rocketmq.rmqclient.util.SpringContextUtils;
 import org.springframework.context.annotation.Bean;
@@ -20,11 +21,18 @@ public class RmqClientConf {
 
     @Bean
     public RmqClientContext getRmqClientContext(){
-        return new RmqClientContext();
+        RmqClientContext rmqClientContext = new RmqClientContext("com.example.demo");
+        rmqClientContext.setSerializeType("protobuf");
+        return rmqClientContext;
     }
 
-//    @Bean
-//    public ProducerAspect getProducerAspect(){
-//        return new ProducerAspect();
-//    }
+    @Bean
+    public ProducerAspect getProducerAspect(){
+        return new ProducerAspect();
+    }
+
+    @Bean
+    public TransactionProducerAspect getTransactionProducerAspect(){
+        return new TransactionProducerAspect();
+    }
 }

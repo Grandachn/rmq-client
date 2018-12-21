@@ -7,11 +7,14 @@ import java.lang.annotation.Target;
 
 /**
  * @Author by guanda
- * @Date 2018/12/20 11:28
+ * @Date 2018/12/20 11:29
  */
 @Target({ ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
-public @interface InputConsumer {
+public @interface OutputMessage {
     String propertiesFile() default "rocketmq.properties";
+    String producerGroup() default "";
+    String namesrvAddr() default "";
     String topic() default "";
+    String tags() default "";
 }

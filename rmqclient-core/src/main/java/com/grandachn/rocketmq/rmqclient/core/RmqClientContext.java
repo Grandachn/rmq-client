@@ -1,11 +1,16 @@
 package com.grandachn.rocketmq.rmqclient.core;
 
-import com.grandachn.rocketmq.rmqclient.annotation.InputConsumer;
-import com.grandachn.rocketmq.rmqclient.annotation.OutputProducer;
-import com.grandachn.rocketmq.rmqclient.annotation.RocketMqHandler;
+import com.grandachn.rocketmq.rmqclient.annotation.InputMessage;
+import com.grandachn.rocketmq.rmqclient.annotation.OutputMessage;
+import com.grandachn.rocketmq.rmqclient.annotation.OutputTransactionMessage;
+import com.grandachn.rocketmq.rmqclient.annotation.RocketMq;
 import com.grandachn.rocketmq.rmqclient.bean.RmqHandlerMeta;
+import com.grandachn.rocketmq.rmqclient.client.RmqConsumer;
 import com.grandachn.rocketmq.rmqclient.client.RmqProducer;
-import com.grandachn.rocketmq.rmqclient.util.SpringContextUtils;
+import com.grandachn.rocketmq.rmqclient.client.RmqTransactionProducer;
+import com.grandachn.rocketmq.rmqclient.serialize.ISerialize;
+import com.grandachn.rocketmq.rmqclient.spi.SpiContainer;
+import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -13,9 +18,10 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import javax.annotation.PostConstruct;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @Author by guanda
@@ -24,21 +30,36 @@ import java.util.*;
 public class RmqClientContext implements ApplicationContextAware {
     private static Logger LOG = LoggerFactory.getLogger(RmqClientContext.class);
 
-    private static ApplicationContext context;
+    private static String packageName;
 
-    private List<RmqHandlerMeta> meta = new ArrayList<>();
+    private static ApplicationContext context;
 
     private Map<Method, RmqProducer> producers = new HashMap<>();
 
+    private Map<Method, RmqTransactionProducer> transactionProducers = new HashMap<>();
+
     private Map<Method, RmqHandlerMeta> producersMeta = new HashMap<>();
+
+    private Map<Method, RmqHandlerMeta> consumerMeta = new HashMap<>();
+
+    private String serializeType = "fastjson";
+
+    private ISerialize serialize;
+
+    public RmqClientContext(String packageName){
+        RmqClientContext.packageName = packageName;
+    }
 
     @PostConstruct
     public void init() {
-        this.meta = getRmqHandlerMeta();
-        if (meta.size() == 0){
-            throw new IllegalArgumentException("No handler method is declared in this spring context.");
-        }
-        meta.forEach(this::createConsumerOrProducer);
+        initMeta();
+        initSerialize();
+        producersMeta.forEach(((method, rmqHandlerMeta) -> createConsumerOrProducer(rmqHandlerMeta)));
+        consumerMeta.forEach(((method, rmqHandlerMeta) -> createConsumerOrProducer(rmqHandlerMeta)));
+    }
+
+    private void initSerialize() {
+        this.serialize = (ISerialize) SpiContainer.getBean(serializeType);
     }
 
     @Override
@@ -47,64 +68,50 @@ public class RmqClientContext implements ApplicationContextAware {
     }
 
     private void createConsumerOrProducer(RmqHandlerMeta rmqHandlerMeta) {
-        if (rmqHandlerMeta.getOutputProducer() != null){
-            RmqProducer rmqProducer = new RmqProducer(rmqHandlerMeta.getOutputProducer().propertiesFile(), rmqHandlerMeta.getOutputProducer().topic());
+        if (rmqHandlerMeta.getOutputMessage() != null){
+            RmqProducer rmqProducer = new RmqProducer(rmqHandlerMeta);
             producers.put(rmqHandlerMeta.getMethod(), rmqProducer);
         }
-    }
 
-    private List<RmqHandlerMeta> getRmqHandlerMeta() {
-        List<RmqHandlerMeta> metaList = new ArrayList<>();
-        System.out.println(context.getBeanNamesForAnnotation(RocketMqHandler.class)[0]);
-        System.out.println(context.getBean(context.getBeanNamesForAnnotation(RocketMqHandler.class)[0]));
-        Arrays.stream(context.getBeanNamesForAnnotation(RocketMqHandler.class))
-                .map(context::getBean)
-                .forEach(bean -> getAnnotationMethodFromClass(bean.getClass()).forEach((method, annotation) -> {
-                    RmqHandlerMeta rmqHandlerMeta = new RmqHandlerMeta();
-                    rmqHandlerMeta.setBean(bean);
-                    rmqHandlerMeta.setMethod(method);
-                    if (annotation instanceof InputConsumer){
-                        rmqHandlerMeta.setInputConsumer((InputConsumer) annotation);
-                        if (method.getParameterTypes().length != 1){
-                            throw new RuntimeException("method with @InputConsumer should have and only have one parameter");
-                        }
-                        rmqHandlerMeta.setParameterType(method.getParameterTypes()[0]);
-                    }else if (annotation instanceof OutputProducer){
-                        rmqHandlerMeta.setOutputProducer((OutputProducer) annotation);
-                        producersMeta.put(method, rmqHandlerMeta);
-                    }
-                    metaList.add(rmqHandlerMeta);
-                }));
-        return metaList;
-    }
-
-    public static Map<Method, Annotation> getAnnotationMethodFromClass(Class clazz){
-        Map<Method, Annotation> hashMap = new HashMap<>();
-        System.out.println(clazz.getMethods().length);
-        for (Annotation annotation: clazz.getAnnotations()){
-            System.out.println(clazz.getName() + ":" +annotation);
+        if (rmqHandlerMeta.getInputMessage() != null){
+            new RmqConsumer(rmqHandlerMeta);
         }
 
-        for (Method method : clazz.getMethods()) {
-            System.out.println(method.getName() + method.isAnnotationPresent(OutputProducer.class));
-            for (Annotation annotation: method.getAnnotations()){
-                System.out.println(method.getName() + ":" +annotation);
-            }
+        if (rmqHandlerMeta.getOutputTransactionMessage() != null){
+            RmqTransactionProducer transactionProducer = new RmqTransactionProducer(rmqHandlerMeta);
+            transactionProducers.put(rmqHandlerMeta.getMethod(), transactionProducer);
         }
+    }
 
-        Arrays.stream(clazz.getMethods())
-                .forEach(method -> Arrays.stream(method.getDeclaredAnnotations())
-                        .forEach(annotation -> {
-                            System.out.println(annotation);
-                            if (annotation instanceof InputConsumer){
-                                hashMap.put(method, annotation);
-                            }
-                            else if (annotation instanceof OutputProducer) {
-                                hashMap.put(method, annotation);
-                            }
-                        })
+    private void initMeta() {
+        Reflections reflections = new Reflections(packageName);
+        reflections.getTypesAnnotatedWith(RocketMq.class)
+                .forEach(clazz -> Arrays.stream(clazz.getMethods())
+                        .forEach(method -> Arrays.stream(method.getAnnotations())
+                                .forEach(annotation -> {
+                                    RmqHandlerMeta rmqHandlerMeta = new RmqHandlerMeta();
+                                    rmqHandlerMeta.setMethod(method);
+                                    rmqHandlerMeta.setBean(context.getBean(clazz));
+                                    rmqHandlerMeta.setBeanClass(clazz);
+                                    if (annotation instanceof InputMessage){
+                                        rmqHandlerMeta.setInputMessage((InputMessage) annotation);
+                                        if (method.getParameterTypes().length != 1){
+                                            throw new RuntimeException("method with @InputMessage should have and only have one parameter");
+                                        }
+                                        rmqHandlerMeta.setParameterType(method.getParameterTypes()[0]);
+                                        consumerMeta.put(method, rmqHandlerMeta);
+                                    } else if (annotation instanceof OutputMessage){
+                                        rmqHandlerMeta.setOutputMessage((OutputMessage) annotation);
+                                        rmqHandlerMeta.setReturnType(method.getReturnType());
+                                        producersMeta.put(method, rmqHandlerMeta);
+                                    } else if (annotation instanceof OutputTransactionMessage){
+                                        rmqHandlerMeta.setOutputTransactionMessage((OutputTransactionMessage) annotation);
+                                        rmqHandlerMeta.setReturnType(method.getReturnType());
+                                        producersMeta.put(method, rmqHandlerMeta);
+                                    }
+                                })
+                        )
                 );
-        return hashMap;
     }
 
     public Map<Method, RmqProducer> getProducers() {
@@ -121,5 +128,37 @@ public class RmqClientContext implements ApplicationContextAware {
 
     public void setProducersMeta(Map<Method, RmqHandlerMeta> producersMeta) {
         this.producersMeta = producersMeta;
+    }
+
+    public Map<Method, RmqHandlerMeta> getConsumerMeta() {
+        return consumerMeta;
+    }
+
+    public void setConsumerMeta(Map<Method, RmqHandlerMeta> consumerMeta) {
+        this.consumerMeta = consumerMeta;
+    }
+
+    public String getSerializeType() {
+        return serializeType;
+    }
+
+    public void setSerializeType(String serializeType) {
+        this.serializeType = serializeType;
+    }
+
+    public ISerialize getSerialize() {
+        return serialize;
+    }
+
+    public void setSerialize(ISerialize serialize) {
+        this.serialize = serialize;
+    }
+
+    public Map<Method, RmqTransactionProducer> getTransactionProducers() {
+        return transactionProducers;
+    }
+
+    public void setTransactionProducers(Map<Method, RmqTransactionProducer> transactionProducers) {
+        this.transactionProducers = transactionProducers;
     }
 }

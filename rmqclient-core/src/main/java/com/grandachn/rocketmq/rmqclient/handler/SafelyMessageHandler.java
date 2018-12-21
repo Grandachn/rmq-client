@@ -12,14 +12,15 @@ import org.slf4j.LoggerFactory;
 public abstract class SafelyMessageHandler implements MessageHandler {
     private static Logger LOG = LoggerFactory.getLogger(SafelyMessageHandler.class);
 
-    protected abstract void doExecute(String message);
+    protected abstract void doExecute(byte[] message, Class clazz) throws Exception;
 
     @Override
-    public void execute(String message) {
+    public void execute(byte[] message, Class clazz) throws Exception {
         try {
-            doExecute(message);
+            doExecute(message, clazz);
         } catch (Throwable t) {
-            handleException(t, message);
+            handleException(t, message.toString());
+            throw t;
         }
     }
 

@@ -18,8 +18,8 @@ public class TestController {
 
 
     @GetMapping("/test")
-    public String test(){
-        messageHandler.createMessage();
+    public String test() throws InterruptedException {
+        messageHandler.createDog();
         return "hello";
     }
 }
