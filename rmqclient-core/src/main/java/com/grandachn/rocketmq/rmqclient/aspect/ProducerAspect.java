@@ -43,7 +43,7 @@ public class ProducerAspect {
         OutputMessage outputMessage = rmqHandlerMeta.getOutputMessage();
 
         producer.sendBeanToTopic(rmqHandlerMeta.getOutputMessage().topic(), outputMessage.tags(),  returnObject);
-        LOG.info("send message to topic:{} , message:{}", outputMessage.topic(), JSON.toJSONString(returnObject));
+//        LOG.info("send message to topic:{} , message:{}", outputMessage.topic(), JSON.toJSONString(returnObject));
     }
 
 }

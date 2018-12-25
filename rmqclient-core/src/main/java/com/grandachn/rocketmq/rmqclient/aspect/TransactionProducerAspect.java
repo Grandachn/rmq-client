@@ -1,10 +1,8 @@
 package com.grandachn.rocketmq.rmqclient.aspect;
 
-import com.alibaba.fastjson.JSON;
-import com.grandachn.rocketmq.rmqclient.annotation.OutputMessage;
-import com.grandachn.rocketmq.rmqclient.annotation.OutputTransactionMessage;
+import com.grandachn.rocketmq.rmqclient.annotation.TransactionMethod;
 import com.grandachn.rocketmq.rmqclient.bean.RmqHandlerMeta;
-import com.grandachn.rocketmq.rmqclient.client.RmqProducer;
+import com.grandachn.rocketmq.rmqclient.bean.TransactionParam;
 import com.grandachn.rocketmq.rmqclient.client.RmqTransactionProducer;
 import com.grandachn.rocketmq.rmqclient.core.RmqClientContext;
 import com.grandachn.rocketmq.rmqclient.util.SpringContextUtils;
@@ -17,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.util.LinkedList;
 
 /**
  * @Author by guanda
@@ -27,7 +26,7 @@ public class TransactionProducerAspect {
 
     private static Logger LOG = LoggerFactory.getLogger(TransactionProducerAspect.class);
 
-    @Pointcut("@annotation(com.grandachn.rocketmq.rmqclient.annotation.OutputTransactionMessage)")
+    @Pointcut("@annotation(com.grandachn.rocketmq.rmqclient.annotation.TransactionMethod)")
     public void annotationPoint(){}
 
     @Around("annotationPoint()")
@@ -35,16 +34,27 @@ public class TransactionProducerAspect {
 //        Object returnObject = joinPoint.proceed();
         RmqClientContext context = (RmqClientContext) SpringContextUtils.getBeanByClass(RmqClientContext.class);
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+
         Method realMethod = joinPoint.getTarget().getClass().getDeclaredMethod(signature.getName(),
                 signature.getMethod().getParameterTypes());
 
         RmqTransactionProducer producer = context.getTransactionProducers().get(realMethod);
         RmqHandlerMeta rmqHandlerMeta = context.getProducersMeta().get(realMethod);
 
-        OutputTransactionMessage outputMessage = rmqHandlerMeta.getOutputTransactionMessage();
+        TransactionMethod outputMessage = rmqHandlerMeta.getTransactionMethod();
 
-        producer.sendBeanToTopic(rmqHandlerMeta.getOutputTransactionMessage().topic(), outputMessage.tags(),"default");
-        LOG.info("send message to topic:{} , message:{}", outputMessage.topic(), JSON.toJSONString(""));
+        Object[] args = joinPoint.getArgs();
+//        Object transactionMessage = new Object();
+        TransactionParam transactionParam = new TransactionParam(new LinkedList<>());
+        for (Object arg : args) {
+            if(arg.getClass().equals(rmqHandlerMeta.getTransactionMessageClass())){
+//                transactionMessage = arg;
+                transactionParam.setMessages(arg);
+            }
+            transactionParam.getParams().add(arg);
+        }
+        producer.sendTransactionBeanToTopic(rmqHandlerMeta.getTransactionMethod().topic(), outputMessage.tags(), transactionParam);
+//        LOG.info("send message to topic:{} , message:{}", outputMessage.topic(), JSON.toJSONString(transactionMessage));
     }
 
 }

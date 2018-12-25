@@ -1,9 +1,6 @@
 package com.grandachn.rocketmq.rmqclient.core;
 
-import com.grandachn.rocketmq.rmqclient.annotation.InputMessage;
-import com.grandachn.rocketmq.rmqclient.annotation.OutputMessage;
-import com.grandachn.rocketmq.rmqclient.annotation.OutputTransactionMessage;
-import com.grandachn.rocketmq.rmqclient.annotation.RocketMq;
+import com.grandachn.rocketmq.rmqclient.annotation.*;
 import com.grandachn.rocketmq.rmqclient.bean.RmqHandlerMeta;
 import com.grandachn.rocketmq.rmqclient.client.RmqConsumer;
 import com.grandachn.rocketmq.rmqclient.client.RmqProducer;
@@ -77,7 +74,7 @@ public class RmqClientContext implements ApplicationContextAware {
             new RmqConsumer(rmqHandlerMeta);
         }
 
-        if (rmqHandlerMeta.getOutputTransactionMessage() != null){
+        if (rmqHandlerMeta.getTransactionMethod() != null){
             RmqTransactionProducer transactionProducer = new RmqTransactionProducer(rmqHandlerMeta);
             transactionProducers.put(rmqHandlerMeta.getMethod(), transactionProducer);
         }
@@ -104,9 +101,14 @@ public class RmqClientContext implements ApplicationContextAware {
                                         rmqHandlerMeta.setOutputMessage((OutputMessage) annotation);
                                         rmqHandlerMeta.setReturnType(method.getReturnType());
                                         producersMeta.put(method, rmqHandlerMeta);
-                                    } else if (annotation instanceof OutputTransactionMessage){
-                                        rmqHandlerMeta.setOutputTransactionMessage((OutputTransactionMessage) annotation);
+                                    } else if (annotation instanceof TransactionMethod){
+                                        rmqHandlerMeta.setTransactionMethod((TransactionMethod) annotation);
                                         rmqHandlerMeta.setReturnType(method.getReturnType());
+                                        Arrays.asList(method.getParameters()).forEach(param -> {
+                                            if (param.isAnnotationPresent(TransactionMessage.class)){
+                                                rmqHandlerMeta.setTransactionMessageClass(param.getType());
+                                            }
+                                        });
                                         producersMeta.put(method, rmqHandlerMeta);
                                     }
                                 })

@@ -2,6 +2,7 @@ package com.grandachn.rocketmq.rmqclient.client;
 
 import com.grandachn.rocketmq.rmqclient.bean.ProducerConfig;
 import com.grandachn.rocketmq.rmqclient.bean.RmqHandlerMeta;
+import com.grandachn.rocketmq.rmqclient.bean.TransactionParam;
 import com.grandachn.rocketmq.rmqclient.core.RmqClientContext;
 import com.grandachn.rocketmq.rmqclient.util.SpringContextUtils;
 import org.apache.rocketmq.client.exception.MQClientException;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.*;
 
@@ -32,6 +34,7 @@ public class RmqTransactionProducer {
 
     private RmqHandlerMeta rmqHandlerMeta;
     private Object bean;
+    private Object beanWithoutAop;
     private Method method;
     private Class beanClass;
 
@@ -43,7 +46,7 @@ public class RmqTransactionProducer {
         this.rmqHandlerMeta = rmqHandlerMeta;
         this.bean = rmqHandlerMeta.getBean();
         this.method = rmqHandlerMeta.getMethod();
-        this.propertiesFile = rmqHandlerMeta.getOutputTransactionMessage().propertiesFile();
+        this.propertiesFile = rmqHandlerMeta.getTransactionMethod().propertiesFile();
         this.beanClass = rmqHandlerMeta.getBeanClass();
         init();
     }
@@ -77,9 +80,12 @@ public class RmqTransactionProducer {
             @Override
             public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
                 try {
-                    System.out.println("start: " + msg.getTransactionId());
                     localTrans.put(msg.getTransactionId(), LocalTransactionState.UNKNOW);
-                    method.invoke(beanClass.newInstance());
+                    List<Object> otherParam = (List<Object>) arg;
+                    if(beanWithoutAop == null){
+                        beanWithoutAop = beanClass.newInstance();
+                    }
+                    method.invoke(beanWithoutAop, otherParam.toArray());
                 } catch (Exception e) {
                     LOG.error("transantion method running fail.", e);
                     localTrans.put(msg.getTransactionId(), LocalTransactionState.ROLLBACK_MESSAGE);
@@ -91,15 +97,19 @@ public class RmqTransactionProducer {
 
             @Override
             public LocalTransactionState checkLocalTransaction(MessageExt msg) {
-                System.out.println("check status: " + localTrans.get(msg.getTransactionId()));
-                return localTrans.get(msg.getTransactionId());
+                LocalTransactionState localTransactionState = localTrans.get(msg.getTransactionId());
+//                System.out.println("check status: " + localTransactionState);
+                if(localTransactionState == null){
+                    return LocalTransactionState.ROLLBACK_MESSAGE;
+                }
+                return localTransactionState;
             }
         };
 
         producer.setNamesrvAddr(config.getNamesrvAddr());
         producer.setExecutorService(executorService);
         producer.setTransactionListener(transactionListener);
-
+        producer.setProducerGroup(rmqHandlerMeta.getTransactionMethod().producerGroup());
         try {
             producer.start();
             this.producer = producer;
@@ -110,12 +120,12 @@ public class RmqTransactionProducer {
         this.rmqClientContext = (RmqClientContext) SpringContextUtils.getBeanByClass(RmqClientContext.class);
     }
 
-    public SendResult sendBeanToTopic(String topicName, String tags, Object bean){
+    public SendResult sendTransactionBeanToTopic(String topicName, String tags, TransactionParam transactionParam){
         SendResult sendResult = null;
         try {
-            byte[] bytes = rmqClientContext.getSerialize().serialize(bean, rmqHandlerMeta.getReturnType());
+            byte[] bytes = rmqClientContext.getSerialize().serialize(transactionParam.getMessages(), rmqHandlerMeta.getTransactionMessageClass());
             Message msg = new Message(topicName , tags,  bytes);
-            sendResult = producer.sendMessageInTransaction(msg, null);
+            sendResult = producer.sendMessageInTransaction(msg, transactionParam.getParams());
         } catch (Exception e) {
             LOG.error("send message error.", e);
         }
@@ -125,5 +135,6 @@ public class RmqTransactionProducer {
 
     public void close() {
         producer.shutdown();
-    }
 }
+
+    }

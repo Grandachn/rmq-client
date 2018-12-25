@@ -22,7 +22,7 @@ public class RmqClientConf {
     @Bean
     public RmqClientContext getRmqClientContext(){
         RmqClientContext rmqClientContext = new RmqClientContext("com.example.demo");
-        rmqClientContext.setSerializeType("protobuf");
+//        rmqClientContext.setSerializeType("protobuf");
         return rmqClientContext;
     }
 

@@ -11,6 +11,10 @@ public class Dog implements Serializable {
     private String name;
     private String type;
 
+    public Dog(){
+
+    }
+
     public Dog(String name, String type){
         this.name = name;
         this.type = type;

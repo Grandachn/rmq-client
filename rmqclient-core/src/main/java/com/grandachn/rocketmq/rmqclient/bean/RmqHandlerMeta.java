@@ -2,7 +2,8 @@ package com.grandachn.rocketmq.rmqclient.bean;
 
 import com.grandachn.rocketmq.rmqclient.annotation.InputMessage;
 import com.grandachn.rocketmq.rmqclient.annotation.OutputMessage;
-import com.grandachn.rocketmq.rmqclient.annotation.OutputTransactionMessage;
+import com.grandachn.rocketmq.rmqclient.annotation.TransactionMessage;
+import com.grandachn.rocketmq.rmqclient.annotation.TransactionMethod;
 
 import java.lang.reflect.Method;
 
@@ -21,11 +22,13 @@ public class RmqHandlerMeta {
 
     private Class returnType;
 
+    private Class transactionMessageClass;
+
     private InputMessage inputMessage;
 
     private OutputMessage outputMessage;
 
-    private OutputTransactionMessage outputTransactionMessage;
+    private TransactionMethod transactionMethod;
 
     public Object getBean() {
         return bean;
@@ -75,12 +78,12 @@ public class RmqHandlerMeta {
         this.returnType = returnType;
     }
 
-    public OutputTransactionMessage getOutputTransactionMessage() {
-        return outputTransactionMessage;
+    public TransactionMethod getTransactionMethod() {
+        return transactionMethod;
     }
 
-    public void setOutputTransactionMessage(OutputTransactionMessage outputTransactionMessage) {
-        this.outputTransactionMessage = outputTransactionMessage;
+    public void setTransactionMethod(TransactionMethod transactionMethod) {
+        this.transactionMethod = transactionMethod;
     }
 
     public Class getBeanClass() {
@@ -89,5 +92,13 @@ public class RmqHandlerMeta {
 
     public void setBeanClass(Class beanClass) {
         this.beanClass = beanClass;
+    }
+
+    public Class getTransactionMessageClass() {
+        return transactionMessageClass;
+    }
+
+    public void setTransactionMessageClass(Class transactionMessageClass) {
+        this.transactionMessageClass = transactionMessageClass;
     }
 }

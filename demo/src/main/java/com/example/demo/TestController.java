@@ -1,7 +1,6 @@
 package com.example.demo;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,7 +18,10 @@ public class TestController {
 
     @GetMapping("/test")
     public String test() throws InterruptedException {
-        messageHandler.createDog();
+        Dog dog = new Dog();
+        dog.setName("kit");
+        dog.setType("hashiki");
+        messageHandler.createDog("t", dog, "haha");
         return "hello";
     }
 }

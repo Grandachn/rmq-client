@@ -13,8 +13,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface InputMessage {
     String propertiesFile() default "rocketmq.properties";
-    String consumerGroup() default "defaultConsumerGroup";
+    String consumerGroup();
     String namesrvAddr() default "";
-    String topic() default "";
+    String topic();
     String subExpression() default "*";
 }
