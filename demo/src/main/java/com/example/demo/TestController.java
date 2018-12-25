@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TestController {
 
     @Autowired
-    MessageHandler messageHandler;
+    TestService testService;
 
 
     @GetMapping("/test")
@@ -21,7 +21,7 @@ public class TestController {
         Dog dog = new Dog();
         dog.setName("kit");
         dog.setType("hashiki");
-        messageHandler.createDog("t", dog, "haha");
+        testService.createDog("t", dog, "haha");
         return "hello";
     }
 }

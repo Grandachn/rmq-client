@@ -68,6 +68,7 @@ public class RmqProducer {
         try {
             byte[] bytes = rmqClientContext.getSerialize().serialize(bean, rmqHandlerMeta.getReturnType());
             Message msg = new Message(topicName , tags,  bytes);
+            msg.setDelayTimeLevel(3);
             sendResult = producer.send(msg);
         } catch (Exception e) {
             LOG.error("send message error.", e);

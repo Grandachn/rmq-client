@@ -1,13 +1,15 @@
 package com.example.demo;
 
 import com.grandachn.rocketmq.rmqclient.annotation.*;
+import org.springframework.stereotype.Service;
 
 /**
  * @Author by guanda
  * @Date 2018/12/20 17:25
  */
 @RocketMq
-public class MessageHandler {
+@Service
+public class TestService {
 
     @TransactionMethod(topic = "TestHandler", tags = "Dog1", producerGroup = "Dog")
     public String createDog(String t, @TransactionMessage Dog dog, String s) throws InterruptedException {
