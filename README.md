@@ -48,3 +48,39 @@ public class TestService {
 }
  
 ```
+
+注解混合使用示例：
+```
+@RocketMq
+@Service
+public class TestService {
+    // 1. 该方法发出事务消息到tags = "Dog1"
+    @TransactionMethod(topic = "TestHandler", tags = "Dog1", producerGroup = "Dog")
+    public String createDog(String t, @TransactionMessage Dog dog, String s) throws InterruptedException {
+        System.out.println("doing create dog:" + s);
+        return "tranaction";
+    }
+    
+    // 2.订阅1中事务消息消费，同时发送新的事务消息到tags = "Dog2"
+    @InputMessage(topic = "TestHandler", subExpression = "Dog1", consumerGroup = "receiveDog")
+    @TransactionMethod(topic = "TestHandler", tags = "Dog2", producerGroup = "Dog22")
+    public void receiveMessage(@TransactionMessage Dog message){
+        System.out.println("[dog reveive]:" + message);
+    }
+
+    // 3. 订阅2中的事务消息消费，返回值作为消息发送到新的队列tags = "TagA"
+    @InputMessage(topic = "TestHandler", subExpression = "Dog2", consumerGroup = "receiveDog2")
+    @OutputMessage(topic = "TestHandler", tags = "TagA", producerGroup = "createMessage")
+    public String receiveMessage2(Dog message){
+        System.out.println("[dog2 reveive]:" + message);
+        return  message.getName();
+    }
+
+    // 4. 消费3中发出的普通消息
+    @InputMessage(topic = "TestHandler", subExpression = "TagA", consumerGroup = "receiveDog3")
+    public void receiveMessage3(String message){
+        System.out.println("[message reveive]:" + message);
+    }
+
+}
+```
